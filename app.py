@@ -56,18 +56,12 @@ CRISIS_RESPONSE = """
 # 5. จัดการ Client และ Multi-turn Chat Session
 api_key = st.secrets.get("AQ.Ab8RN6JBje456450PodASKDoul9DcNgoktE9PfKwcuIPCdb_IQ", os.getenv("AQ.Ab8RN6JBje456450PodASKDoul9DcNgoktE9PfKwcuIPCdb_IQ"))
 
+if not api_key:
+    st.error("⚠️ ไม่พบ API Key: กรุณาตั้งค่า GEMINI_API_KEY ใน App Settings > Secrets ก่อนใช้งาน")
+    st.stop()
+
 if "client" not in st.session_state:
     st.session_state.client = genai.Client(api_key=api_key)
-
-# ใช้โมเดล gemini-2.5-flash พร้อมเก็บประวัติบทสนทนา (Multi-turn)
-if "chat" not in st.session_state:
-    st.session_state.chat = st.session_state.client.chats.create(
-        model="gemini-2.5-flash",
-        config=types.GenerateContentConfig(
-            system_instruction=SYSTEM_INSTRUCTION,
-            temperature=0.7,
-        )
-    )
 
 if "messages" not in st.session_state:
     st.session_state.messages = []

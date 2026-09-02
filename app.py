@@ -26,22 +26,7 @@ with st.sidebar:
 st.title("🌱 SafeSpace: เพื่อนรับฟังนักศึกษา")
 st.caption("พื้นที่ปลอดภัยสำหรับระบายและแยกแยะปัญหา ไม่มีการเก็บข้อมูลส่วนบุคคล (ไม่ใช่บริการทางการแพทย์)")
 
-# 3. กำหนด System Instruction
-SYSTEM_INSTRUCTION = """
-คุณคือ "รุ่นพี่รับฟัง" ที่ปรึกษาชีวิตสำหรับนักศึกษา ป.ตรี
-- บุคลิก: อบอุ่น สุภาพ เป็นกันเอง รับฟังอย่างเข้าใจ ไม่ตัดสิน
-- หน้าที่: พูดคุยทักทายได้ปกติ และช่วยรับฟัง/แยกแยะปัญหาเมื่อน้องๆ เล่าเรื่องเครียดให้ฟัง
-"""
-
-# 4. ตรวจสอบ API Key ผ่าน Secrets พร้อมซ่อน Error ไม่ให้แอปพัง
-raw_key = "AIzaSyChjg9f2e4k8jWv7V-QV3e5gmdrN58u74k"
-if not raw_key:
-    st.warning("🌱 ระบบกำลังอยู่ระหว่างการบำรุงรักษาการเชื่อมต่อ กรุณาลองใหม่อีกครั้งในภายหลังครับ")
-    st.stop()
-
-api_key = str(raw_key).strip().replace('"', '').replace("'", "")
-
-# 5. ฟังก์ชันโหลด Keyword ความเสี่ยง
+# 3. ฟังก์ชันโหลดคลังคำวิกฤตและคลังความรู้ทั่วไป
 def load_crisis_keywords(file_path="crisis_words.txt"):
     keywords = []
     try:
@@ -57,7 +42,40 @@ def load_crisis_keywords(file_path="crisis_words.txt"):
         keywords = ["อยากตาย", "ไม่อยากอยู่แล้ว", "ฆ่าตัวตาย", "ทำร้ายตัวเอง", "กรีดแขน", "ลาโลก"]
     return keywords
 
+def load_general_knowledge(file_path="general_knowledge.txt"):
+    """อ่านคลังแนวทางการคุย / ข้อมูลความรู้เฉพาะทางของมหาวิทยาลัย"""
+    try:
+        if os.path.exists(file_path):
+            with open(file_path, "r", encoding="utf-8") as f:
+                return f.read().strip()
+    except Exception:
+        pass
+    return ""
+
 CRISIS_FALLBACK_LIST = load_crisis_keywords()
+KNOWLEDGE_BASE = load_general_knowledge()
+
+# 4. กำหนด System Instruction โดยนำคลังความรู้ทั่วไปมาประกอบ
+BASE_INSTRUCTION = """
+คุณคือ "รุ่นพี่รับฟัง" ที่ปรึกษาชีวิตสำหรับนักศึกษา ป.ตรี
+- บุคลิก: อบอุ่น สุภาพ เป็นกันเอง รับฟังอย่างเข้าใจ ไม่ตัดสิน
+- หน้าที่: พูดคุยทักทายได้ปกติ และช่วยรับฟัง/แยกแยะปัญหาเมื่อน้องๆ เล่าเรื่องเครียดให้ฟัง
+- เทคนิคการตอบ: เน้นสะท้อนความรู้สึก (Empathy) รับฟังก่อนให้คำแนะนำเชิงตรรกะ และไม่กดดันผู้ใช้
+"""
+
+FULL_SYSTEM_INSTRUCTION = f"""{BASE_INSTRUCTION}
+
+[คลังแนวทางการตอบและข้อมูลอ้างอิงเพิ่มเติม]:
+{KNOWLEDGE_BASE if KNOWLEDGE_BASE else "ตอบตามบริบททั่วไปอย่างเห็นอกเห็นใจ"}
+"""
+
+# 5. ตรวจสอบ API Key ผ่าน Secrets
+raw_key = "AIzaSyChjg9f2e4k8jWv7V-QV3e5gmdrN58u74k"
+if not raw_key:
+    st.warning("🌱 ระบบกำลังอยู่ระหว่างการบำรุงรักษาการเชื่อมต่อ กรุณาลองใหม่อีกครั้งในภายหลังครับ")
+    st.stop()
+
+api_key = str(raw_key).strip().replace('"', '').replace("'", "")
 
 # 6. สร้าง Client และ Chat Session พร้อมดักจับข้อผิดพลาด
 try:
@@ -68,7 +86,7 @@ try:
         st.session_state.chat = st.session_state.client.chats.create(
             model="gemini-2.0-flash",
             config=types.GenerateContentConfig(
-                system_instruction=SYSTEM_INSTRUCTION,
+                system_instruction=FULL_SYSTEM_INSTRUCTION,
                 temperature=0.7,
             )
         )
@@ -76,7 +94,7 @@ except Exception:
     st.warning("🌱 ขออภัยด้วยนะครับ ระบบสัญญาณขัดข้องชั่วคราว กำลังเชื่อมต่อใหม่อีกครั้ง...")
     st.stop()
 
-# 7. ฟังก์ชัน AI Guardrail ตรวจสอบความเสี่ยง (Fallback เสมอหาก API พัง)
+# 7. ฟังก์ชัน AI Guardrail ตรวจสอบความเสี่ยง
 def check_crisis_with_ai(user_text: str) -> bool:
     safety_prompt = f"""
     วิเคราะห์ข้อความต่อไปนี้ของผู้ใช้ ว่ามีสัญญาณของการทำร้ายตัวเอง (Self-harm), การฆ่าตัวตาย (Suicide), 
@@ -95,7 +113,6 @@ def check_crisis_with_ai(user_text: str) -> bool:
         )
         return "CRISIS" in (res.text or "").strip().upper()
     except Exception:
-        # หากต่อ AI ไม่ได้ ให้หลบมาใช้ Keyword Matching เงียบๆ ทันที
         return any(w in user_text.lower() for w in CRISIS_FALLBACK_LIST)
 
 # 8. จัดการประวัติข้อความ
@@ -149,7 +166,6 @@ if prompt:
                 ans = response.text
                 st.markdown(ans)
             except Exception:
-                # ซ่อน Raw Error ของระบบทั้งหมด แล้วแปลงเป็นข้อความขออภัยอย่างสุภาพ
                 ans = "ขออภัยด้วยนะครับ พอดีระบบสัญญาณสะดุดไปชั่วขณะ รบกวนพิมพ์ส่งใหม่อีกครั้ง หรือกดปุ่มรีเฟรชที่เมนูด้านซ้ายนะ 🌱"
                 st.info(ans)
 

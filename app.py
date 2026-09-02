@@ -4,7 +4,11 @@ from google import genai
 from google.genai import types
 
 # 1. ตั้งค่าหน้าเว็บ
-st.set_page_config(page_title="SafeSpace - เพื่อนรับฟังนักศึกษา", page_icon="🌱", layout="centered")
+st.set_page_config(
+    page_title="SafeSpace - เพื่อนรับฟังนักศึกษา", 
+    page_icon="🌱", 
+    layout="centered"
+)
 
 # 2. เมนูด้านข้าง (Sidebar)
 with st.sidebar:
@@ -28,7 +32,7 @@ SYSTEM_INSTRUCTION = """
 - หน้าที่: พูดคุยทักทายได้ปกติ และช่วยรับฟัง/แยกแยะปัญหาเมื่อน้องๆ เล่าเรื่องเครียดให้ฟัง
 """
 
-# 4. ตรวจสอบ API Key ผ่าน Secrets (ปลอดภัยกว่า Hardcode)
+# 4. ตรวจสอบ API Key ผ่าน Secrets
 raw_key = "AIzaSyChjg9f2e4k8jWv7V-QV3e5gmdrN58u74k"
 if not raw_key:
     st.error("⚠️ ไม่พบ API Key: กรุณาตั้งค่า GEMINI_API_KEY ใน App Settings > Secrets ก่อนใช้งาน")
@@ -49,34 +53,51 @@ if "chat" not in st.session_state:
         )
     )
 
-# 6. ฟังก์ชันคัดกรองความเสี่ยงด้วย AI Guardrail
+# 6. ฟังก์ชันโหลด Keyword ความเสี่ยง
 def load_crisis_keywords(file_path="crisis_words.txt"):
-    """โหลดรายการคำอันตรายจากไฟล์ภายนอก"""
     keywords = []
     if os.path.exists(file_path):
         with open(file_path, "r", encoding="utf-8") as f:
             for line in f:
                 cleaned = line.strip().lower()
-                # ข้ามบรรทัดว่างและบรรทัดคอมเมนต์ (#)
                 if cleaned and not cleaned.startswith("#"):
                     keywords.append(cleaned)
     else:
-        # คำสำรองกรณีหาไฟล์ไม่พบ
         keywords = ["อยากตาย", "ไม่อยากอยู่แล้ว", "ฆ่าตัวตาย", "ทำร้ายตัวเอง", "กรีดแขน", "ลาโลก"]
     return keywords
 
 CRISIS_FALLBACK_LIST = load_crisis_keywords()
 
+# 7. ฟังก์ชันประเมินความเสี่ยงด้วย AI (จุดที่หายไป ถูกเติมให้แล้ว)
+def check_crisis_with_ai(user_text: str) -> bool:
+    safety_prompt = f"""
+    วิเคราะห์ข้อความต่อไปนี้ของผู้ใช้ ว่ามีสัญญาณของการทำร้ายตัวเอง (Self-harm), การฆ่าตัวตาย (Suicide), 
+    หรือความสิ้นหวังในชีวิตขั้นรุนแรงหรือไม่ (ไม่ว่าจะพูดตรงๆ หรือบอกใบ้/ใช้คำอุปมา):
+    
+    ข้อความ: "{user_text}"
+    
+    ให้ตอบเพียงคำเดียวเท่านั้น:
+    - ตอบ "CRISIS" หากมีแนวโน้มหรือสัญญาณอันตราย
+    - ตอบ "SAFE" หากเป็นการพูดคุยทั่วไป ปัญหาการเรียน หรือความเครียดปกติที่ไม่มีความเสี่ยงต่อชีวิต
+    """
+    try:
+        res = st.session_state.client.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=safety_prompt,
+        )
+        return "CRISIS" in (res.text or "").strip().upper()
+    except Exception:
+        return any(w in user_text.lower() for w in CRISIS_FALLBACK_LIST)
 
+# 8. จัดการประวัติข้อความ
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# แสดงประวัติการคุย
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
-# Quick Buttons
+# 9. ปุ่มเริ่มด่วน
 quick_text = None
 if not st.session_state.messages:
     st.write("💡 หรือเลือกหัวข้อเริ่มต้น:")
@@ -88,6 +109,7 @@ if not st.session_state.messages:
     if col3.button("🔋 รู้สึกหมดไฟ", use_container_width=True):
         quick_text = "รู้สึกหมดพลัง ไม่อยากทำอะไรเลย เคว้งกับอนาคตมาก"
 
+# 10. รับและประมวลผลข้อความ
 prompt = st.chat_input("พิมพ์ทักทาย หรือเล่าเรื่องในใจได้เลย...") or quick_text
 
 if prompt:

@@ -28,7 +28,7 @@ SYSTEM_INSTRUCTION = """
 """
 
 # 4. ดึง Key และตั้งค่าระบบ
-api_key = "AQ.Ab8RN6JBje456450PodASKDoul9DcNgoktE9PfKwcuIPCdb_IQ"
+api_key = "AIzaSyChjg9f2e4k8jWv7V-QV3e5gmdrN58u74k"
 if not api_key:
     st.error("⚠️ ไม่พบ API Key: กรุณาตั้งค่า GEMINI_API_KEY ใน App Settings > Secrets ก่อนใช้งาน")
     st.stop()

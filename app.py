@@ -61,4 +61,23 @@ def generate_response(prompt: str) -> str:
         ),
     )
     return response.text
-    
+# ส่วนการทำงานในช่องแชต Streamlit
+if prompt := st.chat_input("พิมพ์ข้อความเพื่อพูดคุย..."):
+    # แสดงข้อความผู้ใช้
+    st.chat_message("user").write(prompt)
+
+    with st.spinner("กำลังรับฟัง..."):
+        is_crisis = check_crisis_with_ai(prompt)
+
+    with st.chat_message("assistant"):
+        if is_crisis:
+            ans = """เรารู้สึกเป็นห่วงคุณมากๆ และรับรู้ว่าสิ่งที่คุณแบกรับอยู่อาจหนักหนาสาหัสเกินไปในตอนนี้ 💙
+เราอยากให้คุณได้คุยกับผู้เชี่ยวชาญที่พร้อมรับฟังและช่วยเหลือคุณอย่างแท้จริง:
+
+* **สายด่วนสุขภาพจิต:** 1323 (โทรฟรีตลอด 24 ชั่วโมง)
+* **ศูนย์ช่วยเหลือของสถาบัน/มหาวิทยาลัย**
+* **สายด่วนสะมาริตันส์:** 02-109-7950"""
+            st.warning(ans)
+        else:
+            ans = generate_response(prompt)
+            st.write(ans)

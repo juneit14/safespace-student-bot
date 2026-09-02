@@ -33,12 +33,12 @@ SYSTEM_INSTRUCTION = """
 """
 
 # 4. ตรวจสอบ API Key ผ่าน Secrets
-raw_key = "AIzaSyChjg9f2e4k8jWv7V-QV3e5gmdrN58u74k"
+raw_key = st.secrets.get("GEMINI_API_KEY", os.getenv("GEMINI_API_KEY"))
 if not raw_key:
     st.error("⚠️ ไม่พบ API Key: กรุณาตั้งค่า GEMINI_API_KEY ใน App Settings > Secrets ก่อนใช้งาน")
     st.stop()
 
-api_key = str(raw_key).strip().replace('"', '').replace("'", "")
+api_key = "AIzaSyChjg9f2e4k8jWv7V-QV3e5gmdrN58u74k"
 
 # 5. สร้าง Client และ Chat Session
 if "client" not in st.session_state:

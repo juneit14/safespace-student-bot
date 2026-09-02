@@ -70,7 +70,7 @@ FULL_SYSTEM_INSTRUCTION = f"""{BASE_INSTRUCTION}
 """
 
 # 5. ตรวจสอบ API Key ผ่าน Secrets
-raw_key = "AIzaSyChjg9f2e4k8jWv7V-QV3e5gmdrN58u74k"
+raw_key = raw_key = st.secrets.get("GEMINI_API_KEY", os.getenv("GEMINI_API_KEY"))
 if not raw_key:
     st.warning("🌱 ระบบกำลังอยู่ระหว่างการบำรุงรักษาการเชื่อมต่อ กรุณาลองใหม่อีกครั้งในภายหลังครับ")
     st.stop()

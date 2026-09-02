@@ -33,7 +33,15 @@ SYSTEM_INSTRUCTION = """
 if "client" not in st.session_state:
     # วาง API Key ที่ขอมาตรงนี้
     st.session_state.client = genai.Client(api_key="AQ.Ab8RN6JBje456450PodASKDoul9DcNgoktE9PfKwcuIPCdb_IQ")
-
+# ใช้โมเดล gemini-2.5-flash พร้อมเก็บประวัติบทสนทนา (Multi-turn)
+if "chat" not in st.session_state:
+    st.session_state.chat = st.session_state.client.chats.create(
+        model="gemini-2.5-flash",
+        config=types.GenerateContentConfig(
+            system_instruction=SYSTEM_INSTRUCTION,
+            temperature=0.7,
+        )
+    )
 if "messages" not in st.session_state:
     st.session_state.messages = []
 

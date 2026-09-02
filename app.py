@@ -50,26 +50,26 @@ if "chat" not in st.session_state:
     )
 
 # 6. ฟังก์ชันคัดกรองความเสี่ยงด้วย AI Guardrail
-def check_crisis_with_ai(user_text: str) -> bool:
-    safety_prompt = f"""
-    วิเคราะห์ข้อความต่อไปนี้ของผู้ใช้ ว่ามีสัญญาณของการทำร้ายตัวเอง (Self-harm), การฆ่าตัวตาย (Suicide), 
-    หรือความสิ้นหวังในชีวิตขั้นรุนแรงหรือไม่ (ไม่ว่าจะพูดตรงๆ หรือบอกใบ้/ใช้คำอุปมา):
-    
-    ข้อความ: "{user_text}"
-    
-    ให้ตอบเพียงคำเดียวเท่านั้น:
-    - ตอบ "CRISIS" หากมีแนวโน้มหรือสัญญาณอันตราย
-    - ตอบ "SAFE" หากเป็นการพูดคุยทั่วไป ปัญหาการเรียน หรือความเครียดปกติที่ไม่มีความเสี่ยงต่อชีวิต
-    """
-    try:
-        res = st.session_state.client.models.generate_content(
-            model="gemini-2.0-flash",
-            contents=safety_prompt,
-        )
-        return "CRISIS" in (res.text or "").strip().upper()
-    except Exception:
-        fallback_words = ["อยากตาย", "ไม่อยากอยู่แล้ว", "ฆ่าตัวตาย", "ทำร้ายตัวเอง", "กรีดแขน", "ลาโลก"]
-        return any(w in user_text for w in fallback_words)
+def load_crisis_keywords(file_path="crisis_words.txt"):
+    """โหลดรายการคำอันตรายจากไฟล์ภายนอก"""
+    keywords = []
+    if os.path.exists(file_path):
+        with open(file_path, "r", encoding="utf-8") as f:
+            for line in f:
+                cleaned = line.strip().lower()
+                # ข้ามบรรทัดว่างและบรรทัดคอมเมนต์ (#)
+                if cleaned and not cleaned.startswith("#"):
+                    keywords.append(cleaned)
+    else:
+        # คำสำรองกรณีหาไฟล์ไม่พบ
+        keywords = ["อยากตาย", "ไม่อยากอยู่แล้ว", "ฆ่าตัวตาย", "ทำร้ายตัวเอง", "กรีดแขน", "ลาโลก"]
+    return keywords
+
+CRISIS_FALLBACK_LIST = load_crisis_keywords()
+
+  except Exception:
+        # หากเรียก AI ไม่สำเร็จ ให้เช็กผ่านรายการคำในไฟล์
+        return any(word in user_text.lower() for word in CRISIS_FALLBACK_LIST)
 
 if "messages" not in st.session_state:
     st.session_state.messages = []

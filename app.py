@@ -67,9 +67,6 @@ def load_crisis_keywords(file_path="crisis_words.txt"):
 
 CRISIS_FALLBACK_LIST = load_crisis_keywords()
 
-except Exception:
-        # หากเรียก AI ไม่สำเร็จ ให้เช็กผ่านรายการคำในไฟล์
-        return any(word in user_text.lower() for word in CRISIS_FALLBACK_LIST)
 
 if "messages" not in st.session_state:
     st.session_state.messages = []

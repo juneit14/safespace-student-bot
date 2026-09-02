@@ -29,7 +29,7 @@ SYSTEM_INSTRUCTION = """
 """
 
 # 4. ตรวจสอบ API Key ผ่าน Secrets (ปลอดภัยกว่า Hardcode)
-raw_key = st.secrets.get("GEMINI_API_KEY", os.getenv("GEMINI_API_KEY"))
+raw_key = "AIzaSyChjg9f2e4k8jWv7V-QV3e5gmdrN58u74k"
 if not raw_key:
     st.error("⚠️ ไม่พบ API Key: กรุณาตั้งค่า GEMINI_API_KEY ใน App Settings > Secrets ก่อนใช้งาน")
     st.stop()

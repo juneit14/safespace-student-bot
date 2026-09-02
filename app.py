@@ -28,7 +28,7 @@ SYSTEM_INSTRUCTION = """
 - หน้าที่: พูดคุยทักทายได้ปกติ และช่วยรับฟัง/แยกแยะปัญหาเมื่อน้องๆ เล่าเรื่องเครียดให้ฟัง
 """
 
-# 4. ตรวจสอบ API Key
+# 4. ตรวจสอบ API Key ผ่าน Secrets (ปลอดภัยกว่า Hardcode)
 raw_key = "AIzaSyChjg9f2e4k8jWv7V-QV3e5gmdrN58u74k"
 if not raw_key:
     st.error("⚠️ ไม่พบ API Key: กรุณาตั้งค่า GEMINI_API_KEY ใน App Settings > Secrets ก่อนใช้งาน")
@@ -36,29 +36,7 @@ if not raw_key:
 
 api_key = str(raw_key).strip().replace('"', '').replace("'", "")
 
-# 5. ฟังก์ชันคัดกรองความเสี่ยงด้วย AI Guardrail
-def check_crisis_with_ai(client: genai.Client, user_text: str) -> bool:
-    safety_prompt = f"""
-    วิเคราะห์ข้อความต่อไปนี้ของผู้ใช้ ว่ามีสัญญาณของการทำร้ายตัวเอง (Self-harm), การฆ่าตัวตาย (Suicide), 
-    หรือความสิ้นหวังในชีวิตขั้นรุนแรงหรือไม่ (ไม่ว่าจะพูดตรงๆ หรือบอกใบ้/ใช้คำอุปมา):
-    
-    ข้อความ: "{user_text}"
-    
-    ให้ตอบเพียงคำเดียวเท่านั้น:
-    - ตอบ "CRISIS" หากมีแนวโน้มหรือสัญญาณอันตราย
-    - ตอบ "SAFE" หากเป็นการพูดคุยทั่วไป ปัญหาการเรียน หรือความเครียดปกติที่ไม่มีความเสี่ยงต่อชีวิต
-    """
-    try:
-        res = client.models.generate_content(
-            model="gemini-2.0-flash",
-            contents=safety_prompt,
-        )
-        return "CRISIS" in (res.text or "").strip().upper()
-    except Exception:
-        fallback_words = ["อยากตาย", "ไม่อยากอยู่แล้ว", "ฆ่าตัวตาย", "ทำร้ายตัวเอง", "กรีดแขน", "ลาโลก"]
-        return any(w in user_text for w in fallback_words)
-
-# 6. สร้าง Client และ Chat Session
+# 5. สร้าง Client และ Chat Session
 if "client" not in st.session_state:
     st.session_state.client = genai.Client(api_key=api_key)
 
@@ -70,6 +48,28 @@ if "chat" not in st.session_state:
             temperature=0.7,
         )
     )
+
+# 6. ฟังก์ชันคัดกรองความเสี่ยงด้วย AI Guardrail
+def check_crisis_with_ai(user_text: str) -> bool:
+    safety_prompt = f"""
+    วิเคราะห์ข้อความต่อไปนี้ของผู้ใช้ ว่ามีสัญญาณของการทำร้ายตัวเอง (Self-harm), การฆ่าตัวตาย (Suicide), 
+    หรือความสิ้นหวังในชีวิตขั้นรุนแรงหรือไม่ (ไม่ว่าจะพูดตรงๆ หรือบอกใบ้/ใช้คำอุปมา):
+    
+    ข้อความ: "{user_text}"
+    
+    ให้ตอบเพียงคำเดียวเท่านั้น:
+    - ตอบ "CRISIS" หากมีแนวโน้มหรือสัญญาณอันตราย
+    - ตอบ "SAFE" หากเป็นการพูดคุยทั่วไป ปัญหาการเรียน หรือความเครียดปกติที่ไม่มีความเสี่ยงต่อชีวิต
+    """
+    try:
+        res = st.session_state.client.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=safety_prompt,
+        )
+        return "CRISIS" in (res.text or "").strip().upper()
+    except Exception:
+        fallback_words = ["อยากตาย", "ไม่อยากอยู่แล้ว", "ฆ่าตัวตาย", "ทำร้ายตัวเอง", "กรีดแขน", "ลาโลก"]
+        return any(w in user_text for w in fallback_words)
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
@@ -99,7 +99,7 @@ if prompt:
         st.markdown(prompt)
 
     with st.spinner("กำลังรับฟัง..."):
-        is_crisis = check_crisis_with_ai(st.session_state.client, prompt)
+        is_crisis = check_crisis_with_ai(prompt)
 
     with st.chat_message("assistant"):
         if is_crisis:

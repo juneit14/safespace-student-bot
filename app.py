@@ -175,7 +175,9 @@ if prompt:
                     contents=chat_history,
                     config=types.GenerateContentConfig(
                         system_instruction=FULL_SYSTEM_INSTRUCTION,
-                        temperature=0.7,
+                        temperature=0.5,           # ลดความสุ่มลงเล็กน้อย ช่วยให้โมเดลตัดสินใจคำไวขึ้น
+                        max_output_tokens=300,     # บังคับคำตอบสั้นกระชับ จบไว
+                        thinking_config=types.ThinkingConfig(thinking_budget=0)  # ปิดการคิดในใจ ตอบทันที
                     )
                 )
                 ans = response.text

@@ -1,87 +1,357 @@
 import os
+
 import streamlit as st
+
 from google import genai
+
 from google.genai import types
 
+
+
 # 1. ตั้งค่าหน้าเว็บ
+
 st.set_page_config(
-    page_title="OmniAgent - ผู้ช่วยอัจฉริยะ", 
-    page_icon="⚡", 
+
+    page_title="SafeSpace - เพื่อนรับฟังนักศึกษา", 
+
+    page_icon="🌱", 
+
     layout="centered"
+
 )
 
+
+
 # 2. เมนูด้านข้าง (Sidebar)
+
 with st.sidebar:
-    st.header("⚙️ ตัวช่วย & เมนู")
-    if st.button("🔄 ล้างการสนทนา", use_container_width=True):
+
+    st.header("🚨 ช่วยเหลือฉุกเฉิน")
+
+    st.error("**สายด่วนสุขภาพจิต:** 1323 (ฟรี 24 ชม.)")
+
+    st.info("**สมาคมสะมาริตันส์:** 02-113-6789")
+
+    st.caption("สามารถติดต่อศูนย์สุขภาวะจิตหรือห้องแนะแนวของมหาวิทยาลัยได้เช่นกัน")
+
+    st.divider()
+
+    if st.button("🔄 ล้างประวัติการคุย", use_container_width=True):
+
         st.session_state.messages = []
+
         if "chat" in st.session_state:
+
             del st.session_state["chat"]
+
         st.rerun()
-    st.caption("AI เปิดใช้ความสามารถค้นหาข้อมูลเรียลไทม์ (Google Search)")
 
-st.title("⚡ Smart AI Agent")
-st.caption("ถามได้ทุกเรื่อง: ความรู้รอบตัว, เขียนโค้ด, วิเคราะห์ข้อมูล, ปรึกษาปัญหาชีวิต")
 
-# 3. System Instruction แบบอเนกประสงค์ ปรับตัวตามคำถาม
-SYSTEM_INSTRUCTION = """
-คุณคือ AI Agent ผู้ช่วยอัจฉริยะรอบรู้ ปรับสไตล์การตอบตามเจตนาของผู้ใช้:
-1. คำถามเชิงข้อเท็จจริง/วิชาการ/โค้ดดิ้ง: ตอบตรงประเด็น แม่นยำ กระชับ จัดระเบียบด้วยข้อความชัดเจน
-2. ขอคำปรึกษา/ระบายความรู้สึก: รับฟังอย่างเข้าอกเข้าใจ ใช้ภาษาอบอุ่น เป็นกันเอง ไม่ตัดสิน
-3. คำถามซับซ้อน: คิดวิเคราะห์เป็นขั้นตอน ไม่เดา หากข้อมูลไม่แน่ใจให้ค้นหาคำตอบ
-4. ข้อควรระวังความปลอดภัย: หากพบเจตนาทำร้ายตนเองอย่างชัดเจน ให้แสดงความห่วงใยพร้อมแนะนำสายด่วน 1323 ทันที
+
+st.title("🌱 SafeSpace: เพื่อนรับฟังนักศึกษา")
+
+st.caption("พื้นที่ปลอดภัยสำหรับระบายและแยกแยะปัญหา ไม่มีการเก็บข้อมูลส่วนบุคคล (ไม่ใช่บริการทางการแพทย์)")
+
+
+
+# 3. ฟังก์ชันโหลดคลังคำวิกฤตและคลังความรู้ทั่วไป
+
+def load_crisis_keywords(file_path="crisis_words.txt"):
+
+    keywords = []
+
+    try:
+
+        if os.path.exists(file_path):
+
+            with open(file_path, "r", encoding="utf-8") as f:
+
+                for line in f:
+
+                    cleaned = line.strip().lower()
+
+                    if cleaned and not cleaned.startswith("#"):
+
+                        keywords.append(cleaned)
+
+        else:
+
+            keywords = ["อยากตาย", "ไม่อยากอยู่แล้ว", "ฆ่าตัวตาย", "ทำร้ายตัวเอง", "กรีดแขน", "ลาโลก"]
+
+    except Exception:
+
+        keywords = ["อยากตาย", "ไม่อยากอยู่แล้ว", "ฆ่าตัวตาย", "ทำร้ายตัวเอง", "กรีดแขน", "ลาโลก"]
+
+    return keywords
+
+
+
+def load_general_knowledge(file_path="general_knowledge.txt"):
+
+    """อ่านคลังแนวทางการคุย / ข้อมูลความรู้เฉพาะทางของมหาวิทยาลัย"""
+
+    try:
+
+        if os.path.exists(file_path):
+
+            with open(file_path, "r", encoding="utf-8") as f:
+
+                return f.read().strip()
+
+    except Exception:
+
+        pass
+
+    return ""
+
+
+
+CRISIS_FALLBACK_LIST = load_crisis_keywords()
+
+KNOWLEDGE_BASE = load_general_knowledge()
+
+
+
+# 4. กำหนด System Instruction โดยนำคลังความรู้ทั่วไปมาประกอบ
+
+BASE_INSTRUCTION = """
+
+คุณคือ "รุ่นพี่รับฟัง" รุ่นพี่มหาวิทยาลัยที่เปิดใจรับฟังรุ่นน้อง ป.ตรี
+
+- บุคลิก: อบอุ่น เป็นกันเอง สุภาพแต่เข้าถึงง่าย (เหมือนพี่คุยกับน้องในแช็ต ไม่ใช่ครูกับนักเรียน)
+
+- ภาษาที่ใช้:
+
+  * ใช้ภาษาพูดธรรมชาติ หลีกเลี่ยงภาษาทางการหรือภาษาเขียนวิชาการ
+
+  * ใช้คำลงท้ายที่นุ่มนวล เช่น "ครับ/นะ/เนอะ/ได้นะ" แต่ไม่เยิ่นเย้อ
+
+  * ห้ามตอบยาวเป็นเรียงความ และหลีกเลี่ยงการทำลิสต์ข้อ 1 2 3 ยืดยาว เว้นแต่น้องจะขอคำแนะนำเป็นขั้นตอน
+
+- ทักษะการรับฟัง (Active Listening):
+
+  * สเต็ปแรก: สะท้อนความรู้สึกและรับฟังก่อนเสมอ (เช่น "ฟังดูเหนื่อยมากจริงๆ แบกหลายอย่างเลยนะช่วงนี้")
+
+  * ไม่ด่วนตัดสิน ไม่รีบยัดเยียดคำแนะนำ และไม่มองข้ามปัญหาของน้อง
+
+  * ชวนคุยต่อด้วยคำถามปลายเปิดสั้นๆ เพื่อให้น้องได้ระบายต่อทีละนิด
+
 """
 
-# 4. ตรวจสอบ API Key
-raw_key = st.secrets.get("GEMINI_API_KEY", os.getenv("GEMINI_API_KEY"))
+
+
+FULL_SYSTEM_INSTRUCTION = f"""{BASE_INSTRUCTION}
+
+
+
+[คลังแนวทางการตอบและข้อมูลอ้างอิงเพิ่มเติม]:
+
+{KNOWLEDGE_BASE if KNOWLEDGE_BASE else "ตอบตามบริบททั่วไปอย่างเห็นอกเห็นใจ"}
+
+"""
+
+
+
+# 5. ตรวจสอบ API Key ผ่าน Secrets
+
+raw_key = raw_key = st.secrets.get("GEMINI_API_KEY", os.getenv("GEMINI_API_KEY"))
+
 if not raw_key:
-    st.warning("⚠️ ไม่พบ GEMINI_API_KEY กรุณาตั้งค่าใน Streamlit Secrets หรือ Environment Variable")
+
+    st.warning("🌱 ระบบกำลังอยู่ระหว่างการบำรุงรักษาการเชื่อมต่อ กรุณาลองใหม่อีกครั้งในภายหลังครับ")
+
     st.stop()
+
+
 
 api_key = str(raw_key).strip().replace('"', '').replace("'", "")
 
-# 5. สร้าง Client และ Chat Session พร้อมเปิด Google Search
+
+
+# 6. สร้าง Client และ Chat Session พร้อมดักจับข้อผิดพลาด
+
 try:
+
     if "client" not in st.session_state:
+
         st.session_state.client = genai.Client(api_key=api_key)
 
+
+
     if "chat" not in st.session_state:
+
         st.session_state.chat = st.session_state.client.chats.create(
+
             model="gemini-2.0-flash",
+
             config=types.GenerateContentConfig(
-                system_instruction=SYSTEM_INSTRUCTION,
-                temperature=0.7,
-                tools=[{"google_search": {}}]  # เชื่อม Web Search ให้หาข้อมูลอัปเดตได้
+
+                system_instruction=FULL_SYSTEM_INSTRUCTION,
+
+                temperature=0.85,    # ขยับจาก 0.7 ขึ้นมาที่ 0.85 เพื่อเพิ่มความเป็นมนุษย์และความยืดหยุ่นในการตอบ
+
+                top_p=0.95    # ช่วยให้การเลือกคำศัพท์มีความเป็นธรรมชาติ หลีกเลี่ยงภาษาเขียนทางการ
+
             )
+
         )
-except Exception as e:
-    st.error(f"เกิดข้อผิดพลาดในการเชื่อมต่อ: {e}")
+
+except Exception:
+
+    st.warning("🌱 ขออภัยด้วยนะครับ ระบบสัญญาณขัดข้องชั่วคราว กำลังเชื่อมต่อใหม่อีกครั้ง...")
+
     st.stop()
 
-# 6. จัดการประวัติข้อความ
+
+
+# 7. ฟังก์ชัน AI Guardrail ตรวจสอบความเสี่ยง
+
+def check_crisis_with_ai(user_text: str) -> bool:
+
+    safety_prompt = f"""
+
+    วิเคราะห์ข้อความต่อไปนี้ของผู้ใช้ ว่ามีสัญญาณของการทำร้ายตัวเอง (Self-harm), การฆ่าตัวตาย (Suicide), 
+
+    หรือความสิ้นหวังในชีวิตขั้นรุนแรงหรือไม่ (ไม่ว่าจะพูดตรงๆ หรือบอกใบ้/ใช้คำอุปมา):
+
+    
+
+    ข้อความ: "{user_text}"
+
+    
+
+    ให้ตอบเพียงคำเดียวเท่านั้น:
+
+    - ตอบ "CRISIS" หากมีแนวโน้มหรือสัญญาณอันตราย
+
+    - ตอบ "SAFE" หากเป็นการพูดคุยทั่วไป ปัญหาการเรียน หรือความเครียดปกติที่ไม่มีความเสี่ยงต่อชีวิต
+
+    """
+
+    try:
+
+        res = st.session_state.client.models.generate_content(
+
+            model="gemini-2.0-flash",
+
+            contents=safety_prompt,
+
+        )
+
+        return "CRISIS" in (res.text or "").strip().upper()
+
+    except Exception:
+
+        return any(w in user_text.lower() for w in CRISIS_FALLBACK_LIST)
+
+
+
+# 8. จัดการประวัติข้อความ
+
 if "messages" not in st.session_state:
+
     st.session_state.messages = []
 
+
+
 for msg in st.session_state.messages:
+
     with st.chat_message(msg["role"]):
+
         st.markdown(msg["content"])
 
-# 7. รับและประมวลผลข้อความ
-prompt = st.chat_input("ถามคำถาม, ให้ช่วยเขียนโค้ด, วางแผนงาน หรือชวนคุยได้เลย...")
+
+
+# 9. ปุ่มเริ่มด่วน
+
+quick_text = None
+
+if not st.session_state.messages:
+
+    st.write("💡 **หรือเลือกประเด็นเริ่มต้น:**")
+
+    col1, col2, col3 = st.columns(3)
+
+    if col1.button("📚 เครียดเรื่องเรียน", use_container_width=True):
+
+        quick_text = "ช่วงนี้เครียดเรื่องเรียนกับการทำโปรเจกต์มาก จัดการเวลาไม่ทันเลย"
+
+    if col2.button("👥 ปัญหาเพื่อน", use_container_width=True):
+
+        quick_text = "มีปัญหากับเพื่อนในกลุ่มทำงาน ไม่รู้จะเริ่มพูดยังไงดี"
+
+    if col3.button("🔋 รู้สึกหมดไฟ", use_container_width=True):
+
+        quick_text = "รู้สึกหมดพลัง ไม่อยากทำอะไรเลย เคว้งกับอนาคตมาก"
+
+
+
+# 10. รับและประมวลผลข้อความ
+
+prompt = st.chat_input("พิมพ์ทักทาย หรือเล่าเรื่องในใจได้เลย...") or quick_text
+
+
 
 if prompt:
+
     st.session_state.messages.append({"role": "user", "content": prompt})
+
     with st.chat_message("user"):
+
         st.markdown(prompt)
 
+
+
+    with st.spinner("กำลังรับฟัง..."):
+
+        is_crisis = check_crisis_with_ai(prompt)
+
+
+
     with st.chat_message("assistant"):
-        with st.spinner("กำลังคิดคำตอบ..."):
+
+        if is_crisis:
+
+            ans = """
+
+เรารู้สึกเป็นห่วงคุณมากๆ และรับรู้ว่าสิ่งที่คุณแบกรับอยู่อาจหนักหนาสาหัสเกินไปในตอนนี้ 💙  
+
+เราอยากให้คุณได้คุยกับผู้เชี่ยวชาญที่พร้อมรับฟังและช่วยเหลือคุณอย่างแท้จริง:
+
+
+
+- **สายด่วนสุขภาพจิต:** 1323 (โทรฟรี 24 ชม.)
+
+- **สมาคมสะมาริตันส์แห่งประเทศไทย:** 02-113-6789
+
+- **ศูนย์สุขภาวะจิต / ห้องแนะแนวของมหาวิทยาลัย**
+
+
+
+คุณไม่ได้อยู่ตัวคนเดียวนะ ลองคุยกับสายด่วนหรือคนใกล้ตัวที่ไว้ใจก่อนได้ไหม?
+
+"""
+
+            st.error("⚠️ ระบบตรวจพบสัญญาณความเสี่ยงต่อความปลอดภัย")
+
+            st.markdown(ans)
+
+        else:
+
             try:
+
                 response = st.session_state.chat.send_message(prompt)
+
                 ans = response.text
+
                 st.markdown(ans)
-            except Exception as e:
-                ans = f"ขออภัยด้วยครับ เกิดข้อผิดพลาดชั่วคราว: {e}"
-                st.warning(ans)
+
+            except Exception:
+
+                ans = "ขออภัยด้วยนะครับ พอดีระบบสัญญาณสะดุดไปชั่วขณะ รบกวนพิมพ์ส่งใหม่อีกครั้ง หรือกดปุ่มรีเฟรชที่เมนูด้านซ้ายนะ 🌱"
+
+                st.info(ans)
+
+
 
     st.session_state.messages.append({"role": "assistant", "content": ans})

@@ -94,7 +94,7 @@ try:
             config=types.GenerateContentConfig(
                 system_instruction=FULL_SYSTEM_INSTRUCTION,
                 temperature=0.85,    # ขยับจาก 0.7 ขึ้นมาที่ 0.85 เพื่อเพิ่มความเป็นมนุษย์และความยืดหยุ่นในการตอบ
-                top_p=0.95    # ช่วยให้การเลือกคำศัพท์มีความเป็นธรรมชาติ หลีกเลี่ยงภาษาเขียนทางการ
+                tools=[{"google_search": {}}]
             )
         )
 except Exception:

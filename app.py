@@ -145,9 +145,11 @@ if prompt:
     with st.chat_message("user"):
         st.markdown(prompt)
 
+    with st.spinner("กำลังรับฟัง..."):
+        is_crisis = check_crisis_with_ai(prompt)
+
     with st.chat_message("assistant"):
-        # ตรวจเช็กคำเสี่ยงเบื้องต้นแบบ Instant ไม่เสียเวลาเน็ตเวิร์ก
-        if check_crisis_fast(prompt):
+        if is_crisis:
             ans = """
 เรารู้สึกเป็นห่วงคุณมากๆ และรับรู้ว่าสิ่งที่คุณแบกรับอยู่อาจหนักหนาสาหัสเกินไปในตอนนี้ 💙  
 เราอยากให้คุณได้คุยกับผู้เชี่ยวชาญที่พร้อมรับฟังและช่วยเหลือคุณอย่างแท้จริง:
@@ -162,23 +164,22 @@ if prompt:
             st.markdown(ans)
         else:
             try:
-                # แปลงบริบทแชต
+                # รวบรวมบริบทและส่งคำตอบ
                 chat_history = []
                 for m in st.session_state.messages:
                     role = "user" if m["role"] == "user" else "model"
                     chat_history.append(types.Content(role=role, parts=[types.Part.from_text(text=m["content"])]))
 
-                # สตรีมคำตอบทันที
-                response_stream = st.session_state.client.models.generate_content_stream(
-                    model="gemini-2.5-flash",
+                response = st.session_state.client.models.generate_content(
+                    model="gemini-3.6-flash",
                     contents=chat_history,
                     config=types.GenerateContentConfig(
                         system_instruction=FULL_SYSTEM_INSTRUCTION,
                         temperature=0.7,
                     )
                 )
-                ans = st.write_stream(chunk.text for chunk in response_stream if chunk.text)
-                
+                ans = response.text
+                st.markdown(ans)
             except Exception as e:
                 ans = f"เกิดข้อผิดพลาดจากระบบ: {e}"
                 st.error(ans)

@@ -188,10 +188,10 @@ if prompt:
                     temperature=0.7,
                 )
             )
-        ans = response.text
-        st.markdown(ans)
-        except Exception as e:
-           ans = f"เกิดข้อผิดพลาดจากระบบ: {e}"
-           st.error(ans)
+                ans = response.text
+                st.markdown(ans)
+            except Exception as e:
+                ans = f"เกิดข้อผิดพลาดจากระบบ: {e}"
+                st.error(ans)
 
     st.session_state.messages.append({"role": "assistant", "content": ans})

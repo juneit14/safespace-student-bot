@@ -120,20 +120,34 @@ if prompt:
             st.markdown(ans)
         else:
             try:
+                recent_msgs = st.session_state.messages[-4:]
                 history = [
                     types.Content(
                         role="user" if m["role"] == "user" else "model",
                         parts=[types.Part.from_text(text=m["content"])]
-                    ) for m in st.session_state.messages
+                    ) for m in recent_msgs
                 ]
-                response = st.session_state.client.models.generate_content(
-                    model="gemini-1.5-flash-8b",
-                    contents=history,
-                    config=types.GenerateContentConfig(
-                        system_instruction=SYSTEM_INSTRUCTION,
-                        temperature=0.7,
-                    )
-                )
+                
+                # ลองส่งคำขอ หากติด Rate Limit ให้รอ 4 วินาทีแล้วลองใหม่ 1 ครั้ง
+                response = None
+                for attempt in range(2):
+                    try:
+                        response = st.session_state.client.models.generate_content(
+                            model="gemini-3.6-flash",  # ใช้รุ่นที่ระบบรองรับ
+                            contents=history,
+                            config=types.GenerateContentConfig(
+                                system_instruction=SYSTEM_INSTRUCTION,
+                                temperature=0.7,
+                                max_output_tokens=300,
+                            )
+                        )
+                        break
+                    except Exception as err:
+                        if "429" in str(err) and attempt == 0:
+                            time.sleep(4)  # หน่วงเวลารอคิว Free Tier ตามที่ Google ร้องขอ
+                            continue
+                        raise err
+
                 ans = response.text
                 st.markdown(ans)
             except Exception as e:

@@ -54,7 +54,7 @@ def load_general_knowledge(file_path="general_knowledge.txt"):
 CRISIS_FALLBACK_LIST = load_crisis_keywords()
 KNOWLEDGE_BASE = load_general_knowledge()
 
-# 4. ปรับ System Instruction ให้รองรับการทักทายและการคุยทั่วไปอย่างเป็นธรรมชาติ
+# 4. กำหนด System Instruction
 BASE_INSTRUCTION = """
 คุณคือ "รุ่นพี่รับฟัง" รุ่นพี่มหาวิทยาลัยที่เปิดใจรับฟังรุ่นน้อง ป.ตรี
 - บุคลิก: อบอุ่น เป็นกันเอง สุภาพแต่เข้าถึงง่าย (เหมือนพี่คุยกับน้องในแช็ต ไม่ใช่ครูกับนักเรียน)
@@ -83,25 +83,15 @@ if not raw_key:
 
 api_key = str(raw_key).strip().replace('"', '').replace("'", "")
 
-# 6. สร้าง Client และ Chat Session
+# 6. สร้าง Client
 try:
     if "client" not in st.session_state:
         st.session_state.client = genai.Client(api_key=api_key)
-
-    if "chat" not in st.session_state:
-        st.session_state.chat = st.session_state.client.chats.create(
-            model="gemini-3.6-flash",
-            config=types.GenerateContentConfig(
-                system_instruction=FULL_SYSTEM_INSTRUCTION,
-                temperature=0.7,
-                top_p=0.95
-            )
-        )
 except Exception:
     st.warning("🌱 ขออภัยด้วยนะครับ ระบบสัญญาณขัดข้องชั่วคราว กำลังเชื่อมต่อใหม่อีกครั้ง...")
     st.stop()
 
-# 7. ฟังก์ชัน AI Guardrail ตรวจสอบความเสี่ยง (ข้ามคำทักทายสั้นๆ เพื่อประหยัดเวลา)
+# 7. ฟังก์ชัน AI Guardrail ตรวจสอบความเสี่ยง
 def check_crisis_with_ai(user_text: str) -> bool:
     clean_text = user_text.strip().lower()
     common_greetings = ["หวัดดี", "สวัสดี", "ดีครับ", "ดีค่ะ", "hi", "hello", "ว่าไง", "ฮัลโหล"]
@@ -155,7 +145,7 @@ if prompt:
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    with st.spinner("กำลังพิมพ์..."):
+    with st.spinner("กำลังรับฟัง..."):
         is_crisis = check_crisis_with_ai(prompt)
 
     with st.chat_message("assistant"):
@@ -174,20 +164,20 @@ if prompt:
             st.markdown(ans)
         else:
             try:
-               # รวบรวมบริบทและส่งคำตอบ
+                # รวบรวมบริบทและส่งคำตอบ
                 chat_history = []
                 for m in st.session_state.messages:
                     role = "user" if m["role"] == "user" else "model"
                     chat_history.append(types.Content(role=role, parts=[types.Part.from_text(text=m["content"])]))
 
                 response = st.session_state.client.models.generate_content(
-                model="gemini-2.0-flash",
-                contents=chat_history,
-                config=types.GenerateContentConfig(
-                    system_instruction=FULL_SYSTEM_INSTRUCTION,
-                    temperature=0.7,
+                    model="gemini-3.6-flash",
+                    contents=chat_history,
+                    config=types.GenerateContentConfig(
+                        system_instruction=FULL_SYSTEM_INSTRUCTION,
+                        temperature=0.7,
+                    )
                 )
-            )
                 ans = response.text
                 st.markdown(ans)
             except Exception as e:

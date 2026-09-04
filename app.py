@@ -71,7 +71,7 @@ def check_crisis_with_ai(user_text: str) -> bool:
 
     prompt = f'วิเคราะห์ข้อความว่ามีสัญญาณฆ่าตัวตาย ทำร้ายตัวเอง หรือสิ้นหวังขั้นรุนแรงหรือไม่: "{user_text}"\nตอบเฉพาะ "CRISIS" หรือ "SAFE"'
     try:
-        res = st.session_state.client.models.generate_content(model="gemini-1.5-flash-8b", contents=prompt)
+        res = st.session_state.client.models.generate_content(model="gemini-3.6-flash", contents=prompt)
         return "CRISIS" in (res.text or "").strip().upper()
     except Exception:
         return any(w in clean_text for w in CRISIS_FALLBACK_LIST)

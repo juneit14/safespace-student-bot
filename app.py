@@ -120,7 +120,7 @@ def check_crisis_with_ai(user_text: str) -> bool:
     """
     try:
         res = st.session_state.client.models.generate_content(
-            model="gemini-2.0-flash",
+            model="gemini-3.6-flash",
             contents=safety_prompt,
         )
         return "CRISIS" in (res.text or "").strip().upper()

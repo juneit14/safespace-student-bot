@@ -174,11 +174,24 @@ if prompt:
             st.markdown(ans)
         else:
             try:
-                response = st.session_state.chat.send_message(prompt)
-                ans = response.text
-                st.markdown(ans)
-            except Exception:
-                ans = "ขออภัยด้วยนะครับ พอดีระบบสัญญาณสะดุดไปชั่วขณะ รบกวนพิมพ์ส่งใหม่อีกครั้ง หรือกดปุ่มรีเฟรชที่เมนูด้านซ้ายนะ 🌱"
-                st.info(ans)
+               # รวบรวมบริบทและส่งคำตอบ
+                chat_history = []
+                for m in st.session_state.messages:
+                    role = "user" if m["role"] == "user" else "model"
+                    chat_history.append(types.Content(role=role, parts=[types.Part.from_text(text=m["content"])]))
+
+                response = st.session_state.client.models.generate_content(
+                model="gemini-2.0-flash",
+                contents=chat_history,
+                config=types.GenerateContentConfig(
+                    system_instruction=FULL_SYSTEM_INSTRUCTION,
+                    temperature=0.7,
+                )
+            )
+        ans = response.text
+        st.markdown(ans)
+        except Exception as e:
+            ans = f"เกิดข้อผิดพลาดจากระบบ: {e}"
+            st.error(ans)
 
     st.session_state.messages.append({"role": "assistant", "content": ans})

@@ -191,7 +191,7 @@ if prompt:
         ans = response.text
         st.markdown(ans)
         except Exception as e:
-            ans = f"เกิดข้อผิดพลาดจากระบบ: {e}"
-            st.error(ans)
+           ans = f"เกิดข้อผิดพลาดจากระบบ: {e}"
+           st.error(ans)
 
     st.session_state.messages.append({"role": "assistant", "content": ans})
